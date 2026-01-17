@@ -2,6 +2,7 @@ import { useState } from 'react'
 import Header from './components/Header'
 import MenuCard from './components/MenuCard'
 import ShoppingCart from './components/ShoppingCart'
+import AdminPage from './components/AdminPage'
 import './App.css'
 
 // 임의의 커피 메뉴 데이터
@@ -74,9 +75,28 @@ const MENU_DATA = [
   }
 ]
 
+const INITIAL_INVENTORY = [
+  { id: 1, name: '아메리카노(ICE)', stock: 10 },
+  { id: 2, name: '아메리카노(HOT)', stock: 10 },
+  { id: 3, name: '카페라떼', stock: 10 }
+]
+
+const INITIAL_ORDERS = [
+  {
+    id: 1,
+    orderTime: '2024-07-31T13:00:00',
+    menuSummary: '아메리카노(ICE) x 1',
+    totalPrice: 4000,
+    status: '주문 접수'
+  }
+]
+
 function App() {
   const [currentPage, setCurrentPage] = useState('order')
   const [cartItems, setCartItems] = useState([])
+  const [inventoryItems, setInventoryItems] = useState(INITIAL_INVENTORY)
+  const [orders, setOrders] = useState(INITIAL_ORDERS)
+  const [nextOrderId, setNextOrderId] = useState(INITIAL_ORDERS.length + 1)
 
   const handleNavigate = (page) => {
     setCurrentPage(page)
@@ -116,29 +136,74 @@ function App() {
     if (cartItems.length === 0) return
 
     const totalPrice = cartItems.reduce((sum, item) => sum + item.totalPrice, 0)
-    const orderData = {
-      items: cartItems.map(item => ({
-        menuId: item.menuId,
-        selectedOptions: item.selectedOptions.map(opt => opt.id),
-        quantity: item.quantity
-      })),
-      totalPrice
+    const menuSummary = cartItems
+      .map(item => `${item.menuName} x ${item.quantity}`)
+      .join(', ')
+
+    const newOrder = {
+      id: nextOrderId,
+      orderTime: new Date().toISOString(),
+      menuSummary,
+      totalPrice,
+      status: '주문 접수'
     }
 
-    console.log('주문 데이터:', orderData)
+    setOrders(prev => [newOrder, ...prev])
+    setNextOrderId(prev => prev + 1)
+
     alert(`주문이 완료되었습니다!\n총 금액: ${totalPrice.toLocaleString('ko-KR')}원`)
     
     // 장바구니 비우기
     setCartItems([])
   }
 
+  const handleIncreaseStock = (id) => {
+    setInventoryItems(prev =>
+      prev.map(item =>
+        item.id === id ? { ...item, stock: item.stock + 1 } : item
+      )
+    )
+  }
+
+  const handleDecreaseStock = (id) => {
+    setInventoryItems(prev =>
+      prev.map(item =>
+        item.id === id ? { ...item, stock: Math.max(0, item.stock - 1) } : item
+      )
+    )
+  }
+
+  const handleStartManufacturing = (orderId) => {
+    setOrders(prev =>
+      prev.map(order =>
+        order.id === orderId ? { ...order, status: '제조 중' } : order
+      )
+    )
+  }
+
+  const dashboardCounts = orders.reduce(
+    (acc, order) => {
+      acc.total += 1
+      if (order.status === '주문 접수') acc.received += 1
+      if (order.status === '제조 중') acc.manufacturing += 1
+      if (order.status === '제조 완료') acc.completed += 1
+      return acc
+    },
+    { total: 0, received: 0, manufacturing: 0, completed: 0 }
+  )
+
   if (currentPage === 'admin') {
     return (
       <div className="app">
         <Header currentPage={currentPage} onNavigate={handleNavigate} />
-        <div className="main-content" style={{ paddingTop: '80px' }}>
-          <h1>관리자 화면 (준비 중)</h1>
-        </div>
+        <AdminPage
+          dashboardCounts={dashboardCounts}
+          inventoryItems={inventoryItems}
+          onIncreaseStock={handleIncreaseStock}
+          onDecreaseStock={handleDecreaseStock}
+          orders={orders}
+          onStartManufacturing={handleStartManufacturing}
+        />
       </div>
     )
   }
