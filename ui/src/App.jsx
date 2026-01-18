@@ -193,7 +193,7 @@ function App() {
   )
 
   if (currentPage === 'admin') {
-    return (
+  return (
       <div className="app">
         <Header currentPage={currentPage} onNavigate={handleNavigate} />
         <AdminPage
@@ -222,7 +222,7 @@ function App() {
         </div>
       </main>
       <ShoppingCart cartItems={cartItems} onOrder={handleOrder} />
-    </div>
+      </div>
   )
 }
 
