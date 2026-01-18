@@ -1,6 +1,6 @@
 import './ShoppingCart.css'
 
-function ShoppingCart({ cartItems, onOrder }) {
+function ShoppingCart({ cartItems, onOrder, onIncrease, onDecrease }) {
   const formatPrice = (price) => {
     return price.toLocaleString('ko-KR')
   }
@@ -13,7 +13,7 @@ function ShoppingCart({ cartItems, onOrder }) {
     const optionsText = item.selectedOptions.length > 0
       ? ` (${item.selectedOptions.map(opt => opt.name).join(', ')})`
       : ''
-    return `${item.menuName}${optionsText} X ${item.quantity}`
+    return `${item.menuName}${optionsText}`
   }
 
   return (
@@ -28,7 +28,26 @@ function ShoppingCart({ cartItems, onOrder }) {
               <ul className="cart-items-list">
                 {cartItems.map((item, index) => (
                   <li key={index} className="cart-item">
-                    <span className="item-name">{getItemDisplayName(item)}</span>
+                    <div className="item-info">
+                      <span className="item-name">{getItemDisplayName(item)}</span>
+                      <div className="item-quantity">
+                        <button
+                          className="quantity-button"
+                          onClick={() => onDecrease(item)}
+                          aria-label="수량 감소"
+                        >
+                          -
+                        </button>
+                        <span className="quantity-value">{item.quantity}</span>
+                        <button
+                          className="quantity-button"
+                          onClick={() => onIncrease(item)}
+                          aria-label="수량 증가"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
                     <span className="item-price">{formatPrice(item.totalPrice)}원</span>
                   </li>
                 ))}

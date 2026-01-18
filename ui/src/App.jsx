@@ -1,79 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Header from './components/Header'
 import MenuCard from './components/MenuCard'
 import ShoppingCart from './components/ShoppingCart'
 import AdminPage from './components/AdminPage'
 import './App.css'
 
-// 임의의 커피 메뉴 데이터
-const MENU_DATA = [
-  {
-    id: 1,
-    name: '아메리카노(ICE)',
-    price: 4000,
-    description: '간단한 설명...',
-    image: 'https://images.unsplash.com/photo-1517487881594-2787fef5ebf7?w=800&h=600&fit=crop',
-    options: [
-      { id: 1, name: '샷 추가', price: 500 },
-      { id: 2, name: '시럽 추가', price: 0 }
-    ]
-  },
-  {
-    id: 2,
-    name: '아메리카노(HOT)',
-    price: 4000,
-    description: '간단한 설명...',
-    image: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=800&h=600&fit=crop',
-    options: [
-      { id: 1, name: '샷 추가', price: 500 },
-      { id: 2, name: '시럽 추가', price: 0 }
-    ]
-  },
-  {
-    id: 3,
-    name: '카페라떼',
-    price: 5000,
-    description: '간단한 설명...',
-    image: 'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=800&h=600&fit=crop',
-    options: [
-      { id: 1, name: '샷 추가', price: 500 },
-      { id: 2, name: '시럽 추가', price: 0 }
-    ]
-  },
-  {
-    id: 4,
-    name: '카푸치노',
-    price: 5000,
-    description: '간단한 설명...',
-    image: 'https://images.unsplash.com/photo-1572442388796-11668a67e53d?w=800&h=600&fit=crop',
-    options: [
-      { id: 1, name: '샷 추가', price: 500 },
-      { id: 2, name: '시럽 추가', price: 0 }
-    ]
-  },
-  {
-    id: 5,
-    name: '카라멜 마키아토',
-    price: 5500,
-    description: '간단한 설명...',
-    image: 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=800&h=600&fit=crop',
-    options: [
-      { id: 1, name: '샷 추가', price: 500 },
-      { id: 2, name: '시럽 추가', price: 0 }
-    ]
-  },
-  {
-    id: 6,
-    name: '바닐라 라떼',
-    price: 5500,
-    description: '간단한 설명...',
-    image: 'https://images.unsplash.com/photo-1570197788417-0e82375c9371?w=800&h=600&fit=crop',
-    options: [
-      { id: 1, name: '샷 추가', price: 500 },
-      { id: 2, name: '시럽 추가', price: 0 }
-    ]
-  }
-]
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000'
 
 const INITIAL_INVENTORY = [
   { id: 1, name: '아메리카노(ICE)', stock: 10 },
@@ -93,22 +25,63 @@ const INITIAL_ORDERS = [
 
 function App() {
   const [currentPage, setCurrentPage] = useState('order')
+  const [menus, setMenus] = useState([])
   const [cartItems, setCartItems] = useState([])
   const [inventoryItems, setInventoryItems] = useState(INITIAL_INVENTORY)
   const [orders, setOrders] = useState(INITIAL_ORDERS)
   const [nextOrderId, setNextOrderId] = useState(INITIAL_ORDERS.length + 1)
+
+  const getOptionsKey = (options) =>
+    options.map(option => option.id).sort((a, b) => a - b).join('-')
+
+  useEffect(() => {
+    const loadMenus = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/api/menus`)
+        const data = await response.json()
+        setMenus(data.menus || [])
+      } catch (error) {
+        console.error('메뉴 로딩 실패', error)
+      }
+    }
+
+    loadMenus()
+  }, [])
+
+  useEffect(() => {
+    if (currentPage !== 'admin') return
+
+    const loadAdminData = async () => {
+      try {
+        const [inventoryRes, ordersRes] = await Promise.all([
+          fetch(`${API_BASE}/api/admin/inventory`),
+          fetch(`${API_BASE}/api/admin/orders`)
+        ])
+
+        const inventoryData = await inventoryRes.json()
+        const ordersData = await ordersRes.json()
+
+        setInventoryItems(inventoryData.inventory || [])
+        setOrders(ordersData.orders || [])
+      } catch (error) {
+        console.error('관리자 데이터 로딩 실패', error)
+      }
+    }
+
+    loadAdminData()
+  }, [currentPage])
 
   const handleNavigate = (page) => {
     setCurrentPage(page)
   }
 
   const handleAddToCart = (item) => {
+    const itemKey = getOptionsKey(item.selectedOptions)
     // 같은 메뉴와 같은 옵션 조합이 있는지 확인
     const existingItemIndex = cartItems.findIndex(
       cartItem =>
         cartItem.menuId === item.menuId &&
-        JSON.stringify(cartItem.selectedOptions.map(o => o.id).sort()) ===
-        JSON.stringify(item.selectedOptions.map(o => o.id).sort())
+        getOptionsKey(cartItem.selectedOptions) === itemKey
     )
 
     if (existingItemIndex !== -1) {
@@ -132,53 +105,118 @@ function App() {
     }
   }
 
+  const handleChangeQuantity = (item, delta) => {
+    setCartItems(prev => {
+      const itemKey = getOptionsKey(item.selectedOptions)
+      const updated = prev.map(cartItem => {
+        if (cartItem.menuId !== item.menuId) return cartItem
+        if (getOptionsKey(cartItem.selectedOptions) !== itemKey) return cartItem
+        const newQuantity = cartItem.quantity + delta
+        if (newQuantity <= 0) {
+          return null
+        }
+        const optionsPrice = cartItem.selectedOptions.reduce((sum, opt) => sum + opt.price, 0)
+        const totalPrice = (cartItem.basePrice + optionsPrice) * newQuantity
+        return { ...cartItem, quantity: newQuantity, totalPrice }
+      }).filter(Boolean)
+      return updated
+    })
+  }
+
   const handleOrder = () => {
     if (cartItems.length === 0) return
 
     const totalPrice = cartItems.reduce((sum, item) => sum + item.totalPrice, 0)
-    const menuSummary = cartItems
-      .map(item => `${item.menuName} x ${item.quantity}`)
-      .join(', ')
 
-    const newOrder = {
-      id: nextOrderId,
-      orderTime: new Date().toISOString(),
-      menuSummary,
-      totalPrice,
-      status: '주문 접수'
+    const payload = {
+      items: cartItems.map(item => ({
+        menuId: item.menuId,
+        selectedOptions: item.selectedOptions.map(opt => opt.id),
+        quantity: item.quantity
+      })),
+      totalPrice
     }
 
-    setOrders(prev => [newOrder, ...prev])
-    setNextOrderId(prev => prev + 1)
-
-    alert(`주문이 완료되었습니다!\n총 금액: ${totalPrice.toLocaleString('ko-KR')}원`)
+    fetch(`${API_BASE}/api/orders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.orderId) {
+          alert(`주문이 완료되었습니다!\n총 금액: ${totalPrice.toLocaleString('ko-KR')}원`)
+        } else {
+          alert(data.message || '주문 처리 중 오류가 발생했습니다.')
+        }
+      })
+      .catch(() => {
+        alert('주문 처리 중 오류가 발생했습니다.')
+      })
     
     // 장바구니 비우기
     setCartItems([])
   }
 
   const handleIncreaseStock = (id) => {
-    setInventoryItems(prev =>
-      prev.map(item =>
-        item.id === id ? { ...item, stock: item.stock + 1 } : item
-      )
-    )
+    const target = inventoryItems.find(item => item.id === id)
+    if (!target) return
+    const newStock = target.stock + 1
+
+    fetch(`${API_BASE}/api/admin/inventory/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ stock: newStock })
+    })
+      .then(res => res.json())
+      .then(updated => {
+        setInventoryItems(prev =>
+          prev.map(item => (item.id === id ? updated : item))
+        )
+      })
+      .catch(() => {
+        alert('재고 수정 중 오류가 발생했습니다.')
+      })
   }
 
   const handleDecreaseStock = (id) => {
-    setInventoryItems(prev =>
-      prev.map(item =>
-        item.id === id ? { ...item, stock: Math.max(0, item.stock - 1) } : item
-      )
-    )
+    const target = inventoryItems.find(item => item.id === id)
+    if (!target) return
+    const newStock = Math.max(0, target.stock - 1)
+
+    fetch(`${API_BASE}/api/admin/inventory/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ stock: newStock })
+    })
+      .then(res => res.json())
+      .then(updated => {
+        setInventoryItems(prev =>
+          prev.map(item => (item.id === id ? updated : item))
+        )
+      })
+      .catch(() => {
+        alert('재고 수정 중 오류가 발생했습니다.')
+      })
   }
 
-  const handleStartManufacturing = (orderId) => {
-    setOrders(prev =>
-      prev.map(order =>
-        order.id === orderId ? { ...order, status: '제조 중' } : order
-      )
-    )
+  const handleStartManufacturing = (orderId, status = '제조 중') => {
+    fetch(`${API_BASE}/api/admin/orders/${orderId}/status`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    })
+      .then(res => res.json())
+      .then(updated => {
+        setOrders(prev =>
+          prev.map(order =>
+            order.id === orderId ? { ...order, status: updated.status } : order
+          )
+        )
+      })
+      .catch(() => {
+        alert('주문 상태 변경 중 오류가 발생했습니다.')
+      })
   }
 
   const dashboardCounts = orders.reduce(
@@ -215,13 +253,18 @@ function App() {
         <div className="menu-section">
           <h2 className="section-title">메뉴</h2>
           <div className="menu-grid">
-            {MENU_DATA.map(menu => (
+            {menus.map(menu => (
               <MenuCard key={menu.id} menu={menu} onAddToCart={handleAddToCart} />
             ))}
           </div>
         </div>
       </main>
-      <ShoppingCart cartItems={cartItems} onOrder={handleOrder} />
+      <ShoppingCart
+        cartItems={cartItems}
+        onOrder={handleOrder}
+        onIncrease={(item) => handleChangeQuantity(item, 1)}
+        onDecrease={(item) => handleChangeQuantity(item, -1)}
+      />
       </div>
   )
 }

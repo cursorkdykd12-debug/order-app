@@ -79,10 +79,13 @@ function AdminPage({ dashboardCounts, inventoryItems, onIncreaseStock, onDecreas
                       제조 시작
                     </button>
                   )}
-                  {order.status !== '주문 접수' && (
-                    <span className={`order-status ${order.status === '제조 중' ? 'status-manufacturing' : 'status-completed'}`}>
-                      {order.status}
-                    </span>
+                  {order.status === '제조 중' && (
+                    <button className="order-button" onClick={() => onStartManufacturing(order.id, '완료')}>
+                      제조 완료
+                    </button>
+                  )}
+                  {order.status === '완료' && (
+                    <span className="order-status status-completed">완료</span>
                   )}
                 </div>
               </div>

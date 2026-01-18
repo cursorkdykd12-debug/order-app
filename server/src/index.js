@@ -3,7 +3,7 @@ const cors = require('cors')
 const dotenv = require('dotenv')
 
 dotenv.config()
-const { connectDb } = require('./db')
+const { connectDb, initDb } = require('./db')
 
 const app = express()
 const port = process.env.PORT || 4000
@@ -23,6 +23,10 @@ app.use('/api', require('./routes'))
 connectDb()
   .then(() => {
     console.log('Database connected')
+    return initDb()
+  })
+  .then(() => {
+    console.log('Database initialized')
     app.listen(port, () => {
       console.log(`Server listening on http://localhost:${port}`)
     })
