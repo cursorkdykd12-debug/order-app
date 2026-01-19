@@ -80,21 +80,21 @@ const initDb = async () => {
         name: '아메리카노(ICE)',
         description: '간단한 설명...',
         price: 4000,
-        image: 'https://images.unsplash.com/photo-1517487881594-2787fef5ebf7?w=800&h=600&fit=crop',
+        image: '/americano-ice.jpg',
         stock: 10
       },
       {
         name: '아메리카노(HOT)',
         description: '간단한 설명...',
         price: 4000,
-        image: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=800&h=600&fit=crop',
+        image: '/americano-hot.jpg',
         stock: 10
       },
       {
         name: '카페라떼',
         description: '간단한 설명...',
         price: 5000,
-        image: 'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=800&h=600&fit=crop',
+        image: '/caffe-latte.jpg',
         stock: 10
       }
     ]
@@ -108,6 +108,19 @@ const initDb = async () => {
       await pool.query(
         'INSERT INTO options (menu_id, name, price) VALUES ($1, $2, $3), ($1, $4, $5)',
         [menuId, '샷 추가', 500, '시럽 추가', 0]
+      )
+    }
+  } else {
+    const imageUpdates = [
+      { name: '아메리카노(ICE)', image: '/americano-ice.jpg' },
+      { name: '아메리카노(HOT)', image: '/americano-hot.jpg' },
+      { name: '카페라떼', image: '/caffe-latte.jpg' }
+    ]
+
+    for (const update of imageUpdates) {
+      await pool.query(
+        'UPDATE menus SET image = $1 WHERE name = $2',
+        [update.image, update.name]
       )
     }
   }
